@@ -27,12 +27,21 @@ const albra = localFont({
   ],
   variable: "--font-albra",
 });
+const nextFont = localFont({
+  src: [
+    {
+      path: "./fonts/Alethia Next Extra Light.otf",
+      weight: "100 900",
+    },
+  ],
+  variable: "--font-next",
+});
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${albra.variable} ${nextFont.variable} antialiased`}
       >
         {children}
       </body>

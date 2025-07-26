@@ -12,15 +12,17 @@ if (typeof window !== "undefined") {
 export default function Hero() {
   const heroRef = useRef(null);
   const titleRef = useRef(null);
+  const subtitleRef = useRef(null);
   const canvasRef = useRef(null);
-  const mousePos = useRef({ x: 0, y: 0 });
   const rafRef = useRef(null);
+  const mouseMoveTimeoutRef = useRef(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     const hero = heroRef.current;
     const title = titleRef.current;
+    const subtitle = subtitleRef.current;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
 
@@ -32,66 +34,105 @@ export default function Hero() {
     setCanvasSize();
     window.addEventListener("resize", setCanvasSize);
 
-    // Simple particle system (reduced count for performance)
+    // Simplified particle system
     const particles = [];
-    const particleCount = 50; // Increased for better effect
+    const particleCount = 80; // Significantly increased
 
     class Particle {
       constructor() {
         this.reset();
-        this.baseX = this.x;
-        this.baseY = this.y;
+        this.originalSize = this.size;
+        this.isAttracted = false;
       }
 
       reset() {
         this.x = Math.random() * canvas.width;
         this.y = Math.random() * canvas.height;
-        this.vx = (Math.random() - 0.5) * 0.5;
-        this.vy = (Math.random() - 0.5) * 0.5;
-        this.size = Math.random() * 2 + 1;
+        this.vx = (Math.random() - 0.5) * 0.3;
+        this.vy = (Math.random() - 0.5) * 0.3;
+        this.size = Math.random() * 1.5 + 0.5;
+        this.originalSize = this.size;
+        this.opacity = Math.random() * 0.5 + 0.3;
+        this.originalOpacity = this.opacity;
       }
 
-      update(mouseX, mouseY) {
-        // Mouse interaction - stronger effect
+      update(mouseX, mouseY, isHovering) {
         const dx = mouseX - this.x;
         const dy = mouseY - this.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
-        const maxDistance = 200; // Increased range
+        const maxDistance = isHovering ? 200 : 120; // Larger range when hovering
 
         if (distance < maxDistance && distance > 0) {
-          // Repel particles from mouse (push away effect)
           const force = (maxDistance - distance) / maxDistance;
-          const repelStrength = 2.5; // Much stronger force
-          this.vx -= (dx / distance) * force * repelStrength;
-          this.vy -= (dy / distance) * force * repelStrength;
+
+          if (isHovering) {
+            // When hovering, some particles attract, some repel
+            if (distance < 50) {
+              // Close particles repel strongly
+              this.vx -= (dx / distance) * force * 2;
+              this.vy -= (dy / distance) * force * 2;
+              this.isAttracted = false;
+            } else {
+              // Distant particles attract
+              this.vx += (dx / distance) * force * 0.8;
+              this.vy += (dy / distance) * force * 0.8;
+              this.isAttracted = true;
+            }
+
+            // Increase size and opacity when hovering
+            this.size = this.originalSize * (1 + force * 1.5);
+            this.opacity = Math.min(1, this.originalOpacity * (1 + force * 2));
+          } else {
+            // Normal repulsion when not hovering
+            this.vx -= (dx / distance) * force * 0.8;
+            this.vy -= (dy / distance) * force * 0.8;
+            this.isAttracted = false;
+
+            // Slight size increase
+            this.size = this.originalSize * (1 + force * 0.5);
+            this.opacity = Math.min(1, this.originalOpacity * (1 + force));
+          }
+        } else {
+          // Return to original size and opacity when away from mouse
+          this.size += (this.originalSize - this.size) * 0.1;
+          this.opacity += (this.originalOpacity - this.opacity) * 0.1;
+          this.isAttracted = false;
         }
 
-        // Apply velocity with damping
+        // Apply velocity with different damping based on state
         this.x += this.vx;
         this.y += this.vy;
-        this.vx *= 0.92; // Stronger damping
-        this.vy *= 0.92;
 
-        // Add small random movement
-        this.vx += (Math.random() - 0.5) * 0.05;
-        this.vy += (Math.random() - 0.5) * 0.05;
+        if (this.isAttracted) {
+          this.vx *= 0.85; // Less damping when attracted
+          this.vy *= 0.85;
+        } else {
+          this.vx *= 0.95; // Normal damping
+          this.vy *= 0.95;
+        }
 
-        // Boundary check with wrapping
+        // Add subtle random movement
+        this.vx += (Math.random() - 0.5) * 0.03;
+        this.vy += (Math.random() - 0.5) * 0.03;
+
+        // Boundary wrapping
         if (this.x < 0) this.x = canvas.width;
         if (this.x > canvas.width) this.x = 0;
         if (this.y < 0) this.y = canvas.height;
         if (this.y > canvas.height) this.y = 0;
 
-        // Limit maximum velocity
-        const maxVel = 5;
+        // Limit velocity
+        const maxVel = isHovering ? 8 : 4;
         this.vx = Math.max(-maxVel, Math.min(maxVel, this.vx));
         this.vy = Math.max(-maxVel, Math.min(maxVel, this.vy));
       }
 
       draw(ctx) {
+        ctx.globalAlpha = this.opacity;
         ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size * 1.5, 0, Math.PI * 2);
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
         ctx.fill();
+        ctx.globalAlpha = 1; // Reset alpha
       }
     }
 
@@ -100,18 +141,19 @@ export default function Hero() {
       particles.push(new Particle());
     }
 
-    // Track mouse position for particles
+    // Track mouse position and hover state
     let particleMouseX = window.innerWidth / 2;
     let particleMouseY = window.innerHeight / 2;
+    let isHoveringTitle = false;
 
     // Simple animation loop
     const animate = () => {
-      ctx.fillStyle = "rgba(0, 0, 0, 0.08)"; // Slower fade for trails
+      ctx.fillStyle = "rgba(0, 0, 0, 0.1)"; // Slightly faster fade for more dynamic trails
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      ctx.fillStyle = "rgba(255, 255, 255, 0.7)"; // Brighter particles
+      ctx.fillStyle = "rgba(255, 255, 255, 1)"; // Full opacity for particles
       particles.forEach((particle) => {
-        particle.update(particleMouseX, particleMouseY);
+        particle.update(particleMouseX, particleMouseY, isHoveringTitle);
         particle.draw(ctx);
       });
 
@@ -120,163 +162,80 @@ export default function Hero() {
     animate();
 
     // Split text into letters for animation
-    const text = title.textContent;
-    title.innerHTML = "";
+    const titleLetters = Array.from(title.children);
+    const subtitleLetters = Array.from(subtitle.children);
 
-    const letters = text.split("").map((char, index) => {
-      const span = document.createElement("span");
-      span.textContent = char;
-      span.style.display = "inline-block";
-      span.style.transition = "none";
-      span.dataset.original = char;
-      span.dataset.index = index;
-      title.appendChild(span);
-      return span;
-    });
-
-    // Alternative characters for each letter
-    const alternates = {
-      E: ["Ξ", "Σ", "€", "Ɛ", "∃", "Є"],
-      I: ["Ι", "|", "1", "Ɨ", "ł", "!"],
-      K: ["Κ", "Ҡ", "Ќ", "Ҝ", "Ԟ"],
-      A: ["Λ", "Δ", "∆", "А", "Ⱥ", "∀"],
-      S: ["Ѕ", "$", "§", "Ṡ", "Ş", "Ƨ"],
-    };
-
-    // Initial appearance
-    gsap.set(letters, {
+    // Initial animation for "eikasia"
+    gsap.from(titleLetters, {
+      y: 100,
       opacity: 0,
-      scale: 0,
-      rotationY: 180,
-    });
-
-    gsap.to(letters, {
-      duration: 0.8,
-      opacity: 1,
-      scale: 1,
-      rotationY: 0,
-      ease: "back.out(1.7)",
+      rotateX: -90,
       stagger: 0.05,
-      delay: 0.2,
+      duration: 1.2,
+      ease: "power3.out",
+      delay: 0.3,
     });
 
-    // Add glow to title
+    // Initial animation for "advertising"
+    gsap.from(subtitleLetters, {
+      y: 30,
+      opacity: 0,
+      stagger: 0.03,
+      duration: 0.8,
+      ease: "power3.out",
+      delay: 0.8,
+    });
+
+    // Add simple glow to the main title
     gsap.to(title, {
-      duration: 1,
+      duration: 1.5,
       textShadow:
         "0 0 20px rgba(255, 255, 255, 0.5), 0 0 40px rgba(255, 255, 255, 0.3)",
       ease: "power2.out",
-      delay: 0.5,
+      delay: 1,
     });
 
-    // Ongoing letter flipping animation
-    const flipLetter = (letter) => {
-      const original = letter.dataset.original;
-      const alts = alternates[original] || [original];
-      const currentText = letter.textContent;
-
-      // Pick a random alternate (or original)
-      const options = [original, ...alts];
-      let newChar = options[Math.floor(Math.random() * options.length)];
-
-      // Make sure we pick a different character
-      while (newChar === currentText && options.length > 1) {
-        newChar = options[Math.floor(Math.random() * options.length)];
-      }
-
-      // Flip animation
-      gsap.to(letter, {
-        duration: 0.3,
-        scaleX: 0,
-        ease: "power2.in",
-        onComplete: () => {
-          letter.textContent = newChar;
-          gsap.to(letter, {
-            duration: 0.3,
-            scaleX: 1,
-            ease: "power2.out",
-          });
-        },
-      });
-    };
-
-    // Start continuous random flipping
-    letters.forEach((letter, index) => {
-      // Random initial delay
-      const startDelay = 2 + Math.random() * 3;
-
-      // Create repeating timeline for each letter
-      const tl = gsap.timeline({
-        delay: startDelay,
-        repeat: -1,
-        repeatDelay: 3 + Math.random() * 4,
-      });
-
-      tl.add(() => flipLetter(letter));
-    });
-
-    // Additional subtle floating animation
-    letters.forEach((letter, index) => {
-      gsap.to(letter, {
-        y: -3,
-        duration: 2 + Math.random(),
-        ease: "sine.inOut",
-        repeat: -1,
-        yoyo: true,
-        delay: index * 0.1,
-      });
-    });
-
-    // Simple hover effect
+    // Enhanced hover effects with particle interaction
     const handleMouseEnter = () => {
-      gsap.to(letters, {
-        duration: 0.3,
-        scale: 1.1,
-        stagger: 0.02,
-        ease: "power2.out",
-      });
+      isHoveringTitle = true;
       gsap.to(title, {
-        duration: 0.3,
+        duration: 0.4,
+        scale: 1.08,
         textShadow:
-          "0 0 30px rgba(255, 255, 255, 0.7), 0 0 50px rgba(255, 255, 255, 0.4)",
+          "0 0 40px rgba(255, 255, 255, 0.8), 0 0 60px rgba(255, 255, 255, 0.5), 0 0 80px rgba(255, 255, 255, 0.3)",
         ease: "power2.out",
       });
     };
 
     const handleMouseLeave = () => {
-      gsap.to(letters, {
-        duration: 0.3,
-        scale: 1,
-        stagger: 0.02,
-        ease: "power2.out",
-      });
+      isHoveringTitle = false;
       gsap.to(title, {
-        duration: 0.3,
+        duration: 0.4,
+        scale: 1,
         textShadow:
           "0 0 20px rgba(255, 255, 255, 0.5), 0 0 40px rgba(255, 255, 255, 0.3)",
         ease: "power2.out",
       });
     };
 
-    // Simple parallax on mouse move
+    // Throttled parallax
     const handleMouseMove = (e) => {
-      const x = (e.clientX / window.innerWidth - 0.5) * 20;
-      const y = (e.clientY / window.innerHeight - 0.5) * 20;
-
-      // Update particle mouse position
       particleMouseX = e.clientX;
       particleMouseY = e.clientY;
 
-      gsap.to(title, {
-        duration: 0.5,
-        x: x,
-        y: y,
-        ease: "power2.out",
-      });
+      if (mouseMoveTimeoutRef.current) return;
+
+      mouseMoveTimeoutRef.current = setTimeout(() => {
+        const x = (e.clientX / window.innerWidth - 0.5) * 8;
+        const y = (e.clientY / window.innerHeight - 0.5) * 8;
+
+        gsap.set(title, { x: x, y: y });
+        mouseMoveTimeoutRef.current = null;
+      }, 16);
     };
 
-    // Simple scroll effect
-    ScrollTrigger.create({
+    // Scroll effect
+    const scrollTrigger = ScrollTrigger.create({
       trigger: hero,
       start: "top top",
       end: "bottom top",
@@ -284,8 +243,8 @@ export default function Hero() {
       onUpdate: (self) => {
         const progress = self.progress;
         gsap.set(title, {
-          y: progress * -50,
-          opacity: 1 - progress * 0.5,
+          y: progress * -20,
+          opacity: 1 - progress * 0.3,
         });
       },
     });
@@ -297,11 +256,22 @@ export default function Hero() {
 
     // Cleanup
     return () => {
+      if (mouseMoveTimeoutRef.current) {
+        clearTimeout(mouseMoveTimeoutRef.current);
+      }
+
       title.removeEventListener("mouseenter", handleMouseEnter);
       title.removeEventListener("mouseleave", handleMouseLeave);
       hero.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("resize", setCanvasSize);
-      cancelAnimationFrame(rafRef.current);
+
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+      }
+
+      if (scrollTrigger) {
+        scrollTrigger.kill();
+      }
       ScrollTrigger.getAll().forEach((trigger) => trigger.kill());
     };
   }, []);
@@ -328,10 +298,37 @@ export default function Hero() {
             fontFamily: "var(--font-albra), sans-serif",
             fontStyle: "italic",
             fontWeight: "100",
+            textTransform: "lowercase",
+            lineHeight: ".5",
+            perspective: "400px",
           }}
         >
-          eikasia
+          {"eikasia".split("").map((char, i) => (
+            <span
+              key={i}
+              className="inline-block"
+              style={{ transformOrigin: "bottom center" }}
+            >
+              {char}
+            </span>
+          ))}
         </h1>
+
+        <p
+          ref={subtitleRef}
+          className="text-center text-gray-400 text-lg tracking-wider"
+          style={{
+            fontFamily: "var(--font-next), sans-serif",
+            textTransform: "lowercase",
+            fontSize: "clamp(5rem, 12vw, 5.5rem)",
+          }}
+        >
+          {"advertising".split("").map((char, i) => (
+            <span key={i} className="inline-block">
+              {char}
+            </span>
+          ))}
+        </p>
 
         {/* Simple subtitle */}
         <p className="text-center text-gray-400 mt-6 text-lg tracking-wider opacity-70">
