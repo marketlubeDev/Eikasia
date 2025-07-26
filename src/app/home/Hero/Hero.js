@@ -37,105 +37,160 @@ export default function Hero() {
     setCanvasSize();
     window.addEventListener("resize", setCanvasSize);
 
-    // Simplified particle system
+    // Enhanced interactive particle system
     const particles = [];
-    const particleCount = 80; // Significantly increased
+    const particleCount = 300; // Much higher density for better visual impact
 
     class Particle {
       constructor() {
         this.reset();
         this.originalSize = this.size;
         this.isAttracted = false;
+        this.hue = Math.random() * 60; // Blue to cyan range
+        this.magneticForce = 0;
+        this.pulsePhase = Math.random() * Math.PI * 2;
       }
 
       reset() {
         this.x = Math.random() * canvas.width;
         this.y = Math.random() * canvas.height;
-        this.vx = (Math.random() - 0.5) * 0.3;
-        this.vy = (Math.random() - 0.5) * 0.3;
-        this.size = Math.random() * 1.5 + 0.5;
+        this.vx = (Math.random() - 0.5) * 0.4;
+        this.vy = (Math.random() - 0.5) * 0.4;
+        this.size = Math.random() * 2 + 0.5;
         this.originalSize = this.size;
-        this.opacity = Math.random() * 0.5 + 0.3;
+        this.opacity = Math.random() * 0.6 + 0.2;
         this.originalOpacity = this.opacity;
       }
 
-      update(mouseX, mouseY, isHovering) {
+      update(mouseX, mouseY, isHovering, time) {
         const dx = mouseX - this.x;
         const dy = mouseY - this.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
-        const maxDistance = isHovering ? 200 : 120; // Larger range when hovering
+        const interactionRadius = isHovering ? 250 : 150;
 
-        if (distance < maxDistance && distance > 0) {
-          const force = (maxDistance - distance) / maxDistance;
+        // Pulsing effect
+        this.pulsePhase += 0.02;
+        const pulse = Math.sin(this.pulsePhase) * 0.2 + 1;
+
+        if (distance < interactionRadius && distance > 0) {
+          const force = (interactionRadius - distance) / interactionRadius;
 
           if (isHovering) {
-            // When hovering, some particles attract, some repel
-            if (distance < 50) {
-              // Close particles repel strongly
-              this.vx -= (dx / distance) * force * 2;
-              this.vy -= (dy / distance) * force * 2;
-              this.isAttracted = false;
+            // Complex magnetic behavior
+            if (distance < 60) {
+              // Strong repulsion for close particles
+              this.vx -= (dx / distance) * force * 3;
+              this.vy -= (dy / distance) * force * 3;
+              this.magneticForce = -force;
+            } else if (distance < 120) {
+              // Orbital behavior for mid-range particles
+              const angle = Math.atan2(dy, dx);
+              this.vx += Math.cos(angle + Math.PI / 2) * force * 1.5;
+              this.vy += Math.sin(angle + Math.PI / 2) * force * 1.5;
+              this.magneticForce = force * 0.5;
             } else {
-              // Distant particles attract
-              this.vx += (dx / distance) * force * 0.8;
-              this.vy += (dy / distance) * force * 0.8;
-              this.isAttracted = true;
+              // Gentle attraction for distant particles
+              this.vx += (dx / distance) * force * 1.2;
+              this.vy += (dy / distance) * force * 1.2;
+              this.magneticForce = force;
             }
 
-            // Increase size and opacity when hovering
-            this.size = this.originalSize * (1 + force * 1.5);
-            this.opacity = Math.min(1, this.originalOpacity * (1 + force * 2));
+            // Enhanced visual effects when hovering
+            this.size = this.originalSize * (1 + force * 2) * pulse;
+            this.opacity = Math.min(1, this.originalOpacity * (1 + force * 3));
+            this.hue = 60 + force * 140; // Shift from blue to purple/pink
           } else {
-            // Normal repulsion when not hovering
-            this.vx -= (dx / distance) * force * 0.8;
-            this.vy -= (dy / distance) * force * 0.8;
-            this.isAttracted = false;
+            // Gentle repulsion when not hovering
+            this.vx -= (dx / distance) * force * 1.2;
+            this.vy -= (dy / distance) * force * 1.2;
+            this.magneticForce = -force * 0.3;
 
-            // Slight size increase
-            this.size = this.originalSize * (1 + force * 0.5);
-            this.opacity = Math.min(1, this.originalOpacity * (1 + force));
+            // Moderate size increase
+            this.size = this.originalSize * (1 + force * 0.8) * pulse;
+            this.opacity = Math.min(
+              1,
+              this.originalOpacity * (1 + force * 1.5)
+            );
+            this.hue = force * 40; // Blue to cyan
           }
         } else {
-          // Return to original size and opacity when away from mouse
-          this.size += (this.originalSize - this.size) * 0.1;
+          // Return to original values
+          this.size += (this.originalSize * pulse - this.size) * 0.1;
           this.opacity += (this.originalOpacity - this.opacity) * 0.1;
-          this.isAttracted = false;
+          this.hue += (0 - this.hue) * 0.05;
+          this.magneticForce *= 0.95;
         }
 
-        // Apply velocity with different damping based on state
+        // Apply velocity with magnetic damping
         this.x += this.vx;
         this.y += this.vy;
 
-        if (this.isAttracted) {
-          this.vx *= 0.85; // Less damping when attracted
-          this.vy *= 0.85;
-        } else {
-          this.vx *= 0.95; // Normal damping
-          this.vy *= 0.95;
-        }
+        // Dynamic damping based on magnetic state
+        const damping = this.magneticForce > 0 ? 0.88 : 0.94;
+        this.vx *= damping;
+        this.vy *= damping;
 
-        // Add subtle random movement
-        this.vx += (Math.random() - 0.5) * 0.03;
-        this.vy += (Math.random() - 0.5) * 0.03;
+        // Enhanced random movement
+        this.vx += (Math.random() - 0.5) * 0.05;
+        this.vy += (Math.random() - 0.5) * 0.05;
 
-        // Boundary wrapping
-        if (this.x < 0) this.x = canvas.width;
-        if (this.x > canvas.width) this.x = 0;
-        if (this.y < 0) this.y = canvas.height;
-        if (this.y > canvas.height) this.y = 0;
+        // Smooth boundary wrapping
+        if (this.x < -10) this.x = canvas.width + 10;
+        if (this.x > canvas.width + 10) this.x = -10;
+        if (this.y < -10) this.y = canvas.height + 10;
+        if (this.y > canvas.height + 10) this.y = -10;
 
         // Limit velocity
-        const maxVel = isHovering ? 8 : 4;
+        const maxVel = isHovering ? 12 : 6;
         this.vx = Math.max(-maxVel, Math.min(maxVel, this.vx));
         this.vy = Math.max(-maxVel, Math.min(maxVel, this.vy));
       }
 
-      draw(ctx) {
+      draw(ctx, particles, index) {
+        // Draw connections to nearby particles
+        for (let i = index + 1; i < particles.length; i++) {
+          const other = particles[i];
+          const dx = other.x - this.x;
+          const dy = other.y - this.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+
+          if (distance < 120) {
+            const opacity = ((120 - distance) / 120) * 0.3;
+            ctx.strokeStyle = `hsla(${
+              this.hue + other.hue
+            }/2, 70%, 80%, ${opacity})`;
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            ctx.moveTo(this.x, this.y);
+            ctx.lineTo(other.x, other.y);
+            ctx.stroke();
+          }
+        }
+
+        // Draw particle with color
+        const gradient = ctx.createRadialGradient(
+          this.x,
+          this.y,
+          0,
+          this.x,
+          this.y,
+          this.size
+        );
+        gradient.addColorStop(
+          0,
+          `hsla(${this.hue}, 70%, 90%, ${this.opacity})`
+        );
+        gradient.addColorStop(
+          1,
+          `hsla(${this.hue}, 70%, 60%, ${this.opacity * 0.3})`
+        );
+
+        ctx.fillStyle = gradient;
         ctx.globalAlpha = this.opacity;
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
         ctx.fill();
-        ctx.globalAlpha = 1; // Reset alpha
+        ctx.globalAlpha = 1;
       }
     }
 
@@ -149,15 +204,14 @@ export default function Hero() {
     let particleMouseY = window.innerHeight / 2;
     let isHoveringTitle = false;
 
-    // Simple animation loop
-    const animate = () => {
-      ctx.fillStyle = "rgba(0, 0, 0, 0.1)"; // Slightly faster fade for more dynamic trails
+    // Enhanced animation loop with time
+    const animate = (time = 0) => {
+      ctx.fillStyle = "rgba(0, 0, 0, 0.05)"; // Slower fade for connection trails
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      ctx.fillStyle = "rgba(255, 255, 255, 1)"; // Full opacity for particles
-      particles.forEach((particle) => {
-        particle.update(particleMouseX, particleMouseY, isHoveringTitle);
-        particle.draw(ctx);
+      particles.forEach((particle, index) => {
+        particle.update(particleMouseX, particleMouseY, isHoveringTitle, time);
+        particle.draw(ctx, particles, index);
       });
 
       rafRef.current = requestAnimationFrame(animate);
