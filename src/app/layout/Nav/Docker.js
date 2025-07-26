@@ -55,8 +55,10 @@ function DockItem({
       onHoverEnd={() => isHovered.set(0)}
       onFocus={() => isHovered.set(1)}
       onBlur={() => isHovered.set(0)}
+      onTouchStart={() => isHovered.set(1)}
+      onTouchEnd={() => isHovered.set(0)}
       onClick={onClick}
-      className={`relative inline-flex items-center justify-center rounded-full bg-[#060010] border-neutral-700 border-2 shadow-md ${className}`}
+      className={`relative inline-flex items-center justify-center rounded-full bg-[#060010] border-neutral-700 border-2 shadow-md touch-manipulation ${className}`}
       tabIndex={0}
       role="button"
       aria-haspopup="true"
@@ -131,6 +133,14 @@ export default function Dock({
         mouseX.set(pageX);
       }}
       onMouseLeave={() => {
+        isHovered.set(0);
+        mouseX.set(Infinity);
+      }}
+      onTouchMove={({ touches }) => {
+        isHovered.set(1);
+        mouseX.set(touches[0].pageX);
+      }}
+      onTouchEnd={() => {
         isHovered.set(0);
         mouseX.set(Infinity);
       }}
