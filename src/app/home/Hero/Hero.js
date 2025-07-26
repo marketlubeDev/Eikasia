@@ -484,7 +484,7 @@ export default function Hero() {
           style={{
             fontFamily: "var(--font-next), sans-serif",
             textTransform: "lowercase",
-            fontSize: "clamp(5rem, 12vw, 7rem)",
+            fontSize: "clamp(3rem, 12vw, 7rem)",
           }}
         >
           {"advertising".split("").map((char, i) => (

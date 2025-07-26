@@ -56,7 +56,7 @@ export default function Nav() {
   const dockProps = getDockProps();
 
   return (
-    <div className="fixed top-4 right-3 sm:top-6 sm:right-4 md:top-8 md:right-6 z-50 w-fit h-fit">
+    <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 sm:top-6 sm:right-4 sm:bottom-auto sm:left-auto sm:transform-none md:top-8 md:right-6 z-50 w-fit h-fit">
       <Dock items={items} {...dockProps} />
     </div>
   );
